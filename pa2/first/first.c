@@ -41,8 +41,7 @@ int main(int argc, char** argv) {
 		return 0;
 	}
 	
-	
-	
+	printGrid(grid);
 	return 0;
 }
 
@@ -56,7 +55,7 @@ int createGrid(int grid[16][16], FILE* fp) {
 	for (int i = 0; i < 16; i++) {
 		for (int j = 0; j < 16; j++) {
 			char temp;
-			// Scan an integer followeed by either a tab or newline
+			// Scan an integer followeed by a tab
 			if (fscanf(fp, "%c\t", &temp) == EOF) {
 				return 0;
 			}
@@ -74,7 +73,7 @@ int createGrid(int grid[16][16], FILE* fp) {
 				val = -1;
 			} else {
 				// Case 4: Invalid input
-				return 1;
+				return 0;
 			}
 			
 			grid[i][j] = val;
@@ -88,7 +87,7 @@ int createGrid(int grid[16][16], FILE* fp) {
 ** INPUT: 16x16 hexadoku grid, Three 16x16 2d arrays initialized to 0
 ** OUTPUT: Valid (1) or invalid (0)
 */
-int checkInitialGrid(int grid[16][16], int rowCheck[16][16], int colChec[16][16], int blockCheck[16][16]) {
+int checkInitialGrid(int grid[16][16], int rowCheck[16][16], int colCheck[16][16], int blockCheck[16][16]) {
 	// Initialize array to 0 (will represent each number 0-15)
 
 	
@@ -117,8 +116,8 @@ int checkInitialGrid(int grid[16][16], int rowCheck[16][16], int colChec[16][16]
 			}
 			
 			// Increment occurrences of current number for column i by 1
-			rowCheck[i][grid[j][i]]++;
-			if (rowCheck[i][grid[j][i]] > 1) {
+			colCheck[i][grid[j][i]]++;
+			if (colCheck[i][grid[j][i]] > 1) {
 				return 0;
 			}
 		}
@@ -128,7 +127,7 @@ int checkInitialGrid(int grid[16][16], int rowCheck[16][16], int colChec[16][16]
 	for (int i = 0; i < 16; i++) {
 		// i represents block number
 		// Rows: Blocks 0-3 should start at 0, 4-7 at 4, 8-11 at 8, and 12-15 at 12.
-		// Cols: Blocks should start at 0, 4, 8, or 12 (starting with zero and moving to the next each time)
+		// Cols: Blocks should start at 0, 4, 8, or 12 (begin at 0, moving to the next each time)
 		int startingRow = (i / 4) * 4;
 		int startingCol = (i % 4) * 4;
 		
@@ -180,19 +179,20 @@ int solveGrid(int grid[16][16], int rowCheck[16][16], int colCheck[16][16], int 
 		int count = 0;
 		for (int i  = 0; i < 16; i++) {
 			// Check validity
-			if (rowCheck[eRow][i]++ > 1) {
+			if (++rowCheck[eRow][i] > 1) {
 				rowCheck[eRow][i]--;
 				continue;
-			} else if (colCheck[eCol][i]++ > 1) {
+			} else if (++colCheck[eCol][i] > 1) {
 				rowCheck[eRow][i]--;
 				colCheck[eCol][i]--;
 				continue;
-			} else if (blockCheck[(eRow / 4) * 4 + (eCol / 4)][i]++ > 1) {
+			} else if (++blockCheck[(eRow / 4) * 4 + (eCol / 4)][i] > 1) {
 				rowCheck[eRow][i]--;
 				colCheck[eCol][i]--;
 				blockCheck[(eRow / 4) * 4 + (eCol / 4)][i]--;
 				continue;
 			} else {
+				printf("I %d I", i);
 				count++;
 				num = i;
 			}
@@ -200,6 +200,7 @@ int solveGrid(int grid[16][16], int rowCheck[16][16], int colCheck[16][16], int 
 		
 		// If zero or more than one possibility, no solvable grid
 		if (count != 1) {
+			printf("EXIT c: %d n: %d , %d, %d", count, num, eRow, eCol);
 			return 0;
 		}
 		
@@ -226,6 +227,33 @@ int findEmpty(int grid[16][16], int* eRow, int* eCol) {
 		}
 	}
 	return 0;
+}
+
+/*
+** Function to pint entire grid
+** Input: 16x16 hexadoku grid
+*/
+void printGrid(int grid[16][16]) {
+	// Starting at last empty row, find the next empty number
+	for (int i = 0; i < 16; i++) {
+		for (int j = 0; j < 16; j++) {
+			int num = grid[i][j];
+			char converted = 'G';
+			// Convert int to hexadecimal char
+			if (num < 10) {
+				// Case 1: Number 0-9
+				converted = num + '0';
+			} else {
+				//Case 2: Number 10-15
+				converted = num - 10 + 'A';
+			}
+			printf("%c", converted);
+			if (j != 15) {
+				printf("\t");
+			}
+		}
+		printf("\n");
+	}
 }
 
 
