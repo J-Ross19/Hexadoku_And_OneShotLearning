@@ -36,6 +36,7 @@ int main(int argc, char** argv) {
 	}
 	
 	printGrid(grid);
+	fclose(fp);
 	return 0;
 }
 
