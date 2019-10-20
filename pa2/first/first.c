@@ -95,13 +95,11 @@ int checkInitialGrid(int grid[16][16], int rowCheck[16][16], int colCheck[16][16
 	for (int i = 0; i < 16; i++) {
 		for (int j = 0; j < 16; j++) {
 			if (grid[i][j] == -1) {
-				// Grid number should be filled in later
 				continue;
 			}
 			
-			// Increment occurrences of current number for row i by 1
-			rowCheck[i][grid[i][j]]++;
-			if (rowCheck[i][grid[i][j]] > 1) {
+			// Increment occurrences of current number in row i by 1
+			if (++(rowCheck[i][grid[i][j]]) > 1) {
 				return 0;
 			}
 		}
@@ -111,13 +109,11 @@ int checkInitialGrid(int grid[16][16], int rowCheck[16][16], int colCheck[16][16
 	for (int i = 0; i < 16; i++) {
 		for (int j = 0; j < 16; j++) {
 			if (grid[j][i] == -1) {
-				// Grid number should be filled in later
 				continue;
 			}
 			
-			// Increment occurrences of current number for column i by 1
-			colCheck[i][grid[j][i]]++;
-			if (colCheck[i][grid[j][i]] > 1) {
+			// Increment occurrences of current number in column i by 1
+			if (++(colCheck[i][grid[j][i]]) > 1) {
 				return 0;
 			}
 		}
@@ -131,7 +127,6 @@ int checkInitialGrid(int grid[16][16], int rowCheck[16][16], int colCheck[16][16
 		int startingRow = (i / 4) * 4;
 		int startingCol = (i % 4) * 4;
 		
-		
 		for (int x = startingRow; x < startingRow + 4; x++) {
 			for (int y = startingCol; y < startingCol + 4; y++) {
 				if (grid[x][y] == -1) {
@@ -139,17 +134,14 @@ int checkInitialGrid(int grid[16][16], int rowCheck[16][16], int colCheck[16][16
 					continue;
 				}
 			
-				// Increment occurrences of current number for row i by 1
-				blockCheck[i][grid[x][y]]++;
-				if (blockCheck[i][grid[x][y]] > 1) {
+				// Increment occurrences of current number in block i by 1
+				if (++(blockCheck[i][grid[x][y]]) > 1) {
 					return 0;
 				}	
-				
 			}
 		}
 	
 	}
-	
 	return 1;
 }
 
@@ -173,38 +165,52 @@ void initZero(int grid[16][16]) {
 int solveGrid(int grid[16][16], int rowCheck[16][16], int colCheck[16][16], int blockCheck[16][16]) {
 	
 	int eRow = 0;
-	int eCol = 0;
+	int eCol = -1;
+	
+	// oRow and oCol represent the row and column of the first empty element (after filling in)
+	int oRow = 0;
+	int oCol = -1;
+	int passed = 0;
+	
 	while (findEmpty(grid, &eRow, &eCol)) {
+		
 		int num = 0;
 		int count = 0;
 		for (int i  = 0; i < 16; i++) {
 			// Check validity
-			if (++rowCheck[eRow][i] > 1) {
-				rowCheck[eRow][i]--;
-				continue;
-			} else if (++colCheck[eCol][i] > 1) {
-				rowCheck[eRow][i]--;
-				colCheck[eCol][i]--;
-				continue;
-			} else if (++blockCheck[(eRow / 4) * 4 + (eCol / 4)][i] > 1) {
-				rowCheck[eRow][i]--;
-				colCheck[eCol][i]--;
-				blockCheck[(eRow / 4) * 4 + (eCol / 4)][i]--;
+			if (rowCheck[eRow][i] + 1 > 1 || colCheck[eCol][i] + 1 > 1 || 
+			blockCheck[(eRow / 4) * 4 + (eCol / 4)][i] + 1 > 1) {
+				// If it fails any test, check next value
 				continue;
 			} else {
-				printf("I %d I", i);
+				// Otherwise, increment count
 				count++;
 				num = i;
 			}
 		}
-		
-		// If zero or more than one possibility, no solvable grid
-		if (count != 1) {
-			printf("EXIT c: %d n: %d , %d, %d", count, num, eRow, eCol);
+
+		if (count > 1) {
+			// Decide if we have checked all empty values without success
+			if (passed && eRow == oRow && eCol == oCol) {
+				return 0;
+			}
+			passed = 1;
+		} else if (count < 1) {
+			// If less than one possibility, no solvable grid
 			return 0;
+		} else {
+			// Only possibility: Insert number into grid
+			grid[eRow][eCol] = num;
+			
+			//Increment occurrence in respecting checks
+			rowCheck[eRow][num]++;
+			colCheck[eCol][num]++;
+			blockCheck[(eRow / 4) * 4 + (eCol / 4)][num]++;
+			
+			// Create new original check and set passed to 0, so we can tell if there has been a full loop
+			findEmpty(grid, &oRow, &oCol);
+			passed = 0;
 		}
-		
-		grid[eRow][eCol] = num;
 	}
 	
 	return 1;
@@ -216,9 +222,22 @@ int solveGrid(int grid[16][16], int rowCheck[16][16], int colCheck[16][16], int 
 ** Output: 1 - if value is found, 0 - if no more empty spots are left
 */
 int findEmpty(int grid[16][16], int* eRow, int* eCol) {
-	// Starting at last empty row, find the next empty number
+	// Starting at last empty row and column, find the next empty number
 	for (int i = *eRow; i < 16; i++) {
-		for (int j = 0; j < 16; j++) {
+		int j = (i == *eRow) ? *eCol + 1 : 0;
+		while (j < 16) {
+			if (grid[i][j] == -1) {
+				*eRow = i;
+				*eCol = j;
+				return 1;
+			}
+			j++;
+		}
+	}
+	
+	// Gone through rest of matrix. Start over
+	for (int i = 0; i <= *eRow; i++) {
+		for (int j = 0; j < *eCol; j++) {
 			if (grid[i][j] == -1) {
 				*eRow = i;
 				*eCol = j;
@@ -226,11 +245,12 @@ int findEmpty(int grid[16][16], int* eRow, int* eCol) {
 			}
 		}
 	}
+	
 	return 0;
 }
 
 /*
-** Function to pint entire grid
+** Function to print entire grid
 ** Input: 16x16 hexadoku grid
 */
 void printGrid(int grid[16][16]) {
