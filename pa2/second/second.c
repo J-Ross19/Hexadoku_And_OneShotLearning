@@ -2,6 +2,262 @@
 #include <stdlib.h>
 #include "second.h"
 
-int main (int argc, char** argv) {
+int main(int argc, char** argv) {
+	// Invalid arguments
+	if (argc != 2) {
+		return 0;
+	}
+	
+	FILE* fp = fopen(argv[1], "r");
+	
+	// File does not exist or can't be reached
+	if (fp == NULL) {
+		return 0;
+	}
+	
+	// Create 16x16 hexadoku grid
+	int grid[16][16];
+	
+	// Read in input grid and add relevant values
+	if (!createGrid(grid, fp)) { 
+		// Grid did not contain proper inputs
+		return 0;
+	}
+	
+	// Create 3 matrices to keep track of occurrences of each value in each row (Ex. rowCheck[0][3] represents # of 3s in thee first row)
+	int rowCheck[16][16];
+	int colCheck[16][16];
+	int blockCheck[16][16];
 
+	initZero(rowCheck);
+	initZero(colCheck);
+	initZero(blockCheck);
+	
+	// Check initial grid and fill in check arrays and solve grid
+	if (!checkInitialGrid(grid, rowCheck, colCheck, blockCheck) || 
+	!solveGrid(grid, rowCheck, colCheck, blockCheck, -1, 0, 0)) {
+		// Invalid grid
+		printf("no-solution");
+		return 0;
+	}
+	
+	printGrid(grid);
+	return 0;
 }
+
+/* 
+** Function to read in input data and convert hexadecimal values 0-F to integer valuees 0-15
+** for easier arithmetic 
+** INPUTS: 16x16 hexadoku grid, Pointer to file
+** OUTPUT: Success value (1) or failure value (0)
+*/
+int createGrid(int grid[16][16], FILE* fp) {
+	for (int i = 0; i < 16; i++) {
+		for (int j = 0; j < 16; j++) {
+			char temp;
+			// Scan an integer followeed by a tab
+			if (fscanf(fp, "%c\t", &temp) == EOF) {
+				return 0;
+			}
+			
+			// Convert current character to int
+			int val;
+			if (temp >= '0' && temp <= '9') {
+				// Case 1: Range from ['0','9']
+				val = temp - '0';
+			} else if (temp >= 'A' && temp <= 'F') {
+				// Case 2: Range from ['A','F']
+				val = temp - 'A' + 10;
+			} else if (temp == '-') {
+				// Case 3: '-' (Value to be filled in)
+				val = -1;
+			} else {
+				// Case 4: Invalid input
+				return 0;
+			}
+			
+			grid[i][j] = val;
+		}
+	}
+	return 1;		
+}
+
+/*
+** Function to check whether the board is valid
+** INPUT: 16x16 hexadoku grid, Three 16x16 2d arrays initialized to 0
+** OUTPUT: Valid (1) or invalid (0)
+*/
+int checkInitialGrid(int grid[16][16], int rowCheck[16][16], int colCheck[16][16], int blockCheck[16][16]) {
+	// Initialize array to 0 (will represent each number 0-15)
+
+	
+	// Check if rows are valid 
+	for (int i = 0; i < 16; i++) {
+		for (int j = 0; j < 16; j++) {
+			if (grid[i][j] == -1) {
+				continue;
+			}
+			
+			// Increment occurrences of current number in row i by 1
+			if (++(rowCheck[i][grid[i][j]]) > 1) {
+				return 0;
+			}
+		}
+	}
+	
+	// Check if columns are valid
+	for (int i = 0; i < 16; i++) {
+		for (int j = 0; j < 16; j++) {
+			if (grid[j][i] == -1) {
+				continue;
+			}
+			
+			// Increment occurrences of current number in column i by 1
+			if (++(colCheck[i][grid[j][i]]) > 1) {
+				return 0;
+			}
+		}
+	}
+	
+	// Check if the 4x4 blocks are valid
+	for (int i = 0; i < 16; i++) {
+		// i represents block number
+		// Rows: Blocks 0-3 should start at 0, 4-7 at 4, 8-11 at 8, and 12-15 at 12.
+		// Cols: Blocks should start at 0, 4, 8, or 12 (begin at 0, moving to the next each time)
+		int startingRow = (i / 4) * 4;
+		int startingCol = (i % 4) * 4;
+		
+		for (int x = startingRow; x < startingRow + 4; x++) {
+			for (int y = startingCol; y < startingCol + 4; y++) {
+				if (grid[x][y] == -1) {
+					// Grid number should be filled in later
+					continue;
+				}
+			
+				// Increment occurrences of current number in block i by 1
+				if (++(blockCheck[i][grid[x][y]]) > 1) {
+					return 0;
+				}	
+			}
+		}
+	
+	}
+	return 1;
+}
+
+/*
+** Function to initilize an array to all 0s
+** INPUT: 16 x 16 2-d array
+*/
+void initZero(int grid[16][16]) {
+	for (int i = 0; i < 16; i++) {
+		for (int j = 0; j < 16; j++) {
+			grid[i][j] = 0;
+		}
+	}
+}
+
+/*
+** Function to fill in remainder of grid
+** Input: 16x16 hexadoku grid
+** Output: Valid (1) or invalid (0)
+*/
+int solveGrid(int grid[16][16], int rowCheck[16][16], int colCheck[16][16], int blockCheck[16][16], int index, int changedRow, int changedCol) {
+	
+	
+	// Check validity (skip first function call)
+	if (index != -1 && (rowCheck[changedRow][index] > 1 || colCheck[changedCol][index] > 1 || 
+	blockCheck[(changedRow / 4) * 4 + (changedCol / 4)][index] > 1)) {
+		// Decrement checks and go back one step if invalid
+		rowCheck[changedRow][index]--;
+		colCheck[changedCol][index]--;
+		blockCheck[(changedRow / 4) * 4 + (changedCol / 4)][index]--;
+		return 0;
+	} 
+	
+	// Get row and column number of next empty element
+	int eRow = 0;
+	int eCol = 0;
+	if (!findEmpty(grid, &eRow, &eCol)) {
+		return 1;
+	}
+	
+	for (int i  = 0; i < 16; i++) {
+		// Increment checks
+		rowCheck[eRow][i]++;
+		colCheck[eCol][i]++;
+		blockCheck[(eRow / 4) * 4 + (eCol / 4)][i]++;
+		
+		grid[eRow][eCol] = i;
+		// Recursive call with this value in grid
+		if (solveGrid(grid, rowCheck, colCheck, blockCheck, i, eRow, eCol)) {
+			return 1;
+		}
+		// If failed, reset grid
+		grid[eRow][eCol] = -1;	
+	}
+	
+	return 0;
+}
+
+/*
+** Function to find the first empty row/column of a grid
+** Inputs: 16x16 hexadoku grid, pointers to two integer vaiables
+** Output: 1 - if value is found, 0 - if no more empty spots are left
+*/
+int findEmpty(int grid[16][16], int* eRow, int* eCol) {
+	// Starting at last empty row and column, find the next empty number
+	for (int i = *eRow; i < 16; i++) {
+		int j = (i == *eRow) ? *eCol : 0;
+		while (j < 16) {
+			if (grid[i][j] == -1) {
+				*eRow = i;
+				*eCol = j;
+				return 1;
+			}
+			j++;
+		}
+	}
+	
+	// Gone through rest of matrix. Start over
+	for (int i = 0; i <= *eRow; i++) {
+		for (int j = 0; j < *eCol; j++) {
+			if (grid[i][j] == -1) {
+				*eRow = i;
+				*eCol = j;
+				return 1;
+			}
+		}
+	}
+	
+	return 0;
+}
+
+/*
+** Function to print entire grid
+** Input: 16x16 hexadoku grid
+*/
+void printGrid(int grid[16][16]) {
+	// Starting at last empty row, find the next empty number
+	for (int i = 0; i < 16; i++) {
+		for (int j = 0; j < 16; j++) {
+			int num = grid[i][j];
+			char converted = 'G';
+			// Convert int to hexadecimal char
+			if (num < 10) {
+				// Case 1: Number 0-9
+				converted = num + '0';
+			} else {
+				//Case 2: Number 10-15
+				converted = num - 10 + 'A';
+			}
+			printf("%c", converted);
+			if (j != 15) {
+				printf("\t");
+			}
+		}
+		printf("\n");
+	}
+}
+
+
