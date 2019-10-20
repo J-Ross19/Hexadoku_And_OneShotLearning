@@ -21,8 +21,11 @@ int main(int argc, char** argv) {
 		return 0;
 	}
 	
+	int rowsX = numExamples;
+	int colsX = numAttributes - 1;
+	
 	// Create matrix X with N rows and K columns
-	int** X = allocateMatrix(numExamples, numAttributes - 1);
+	int** X = allocateMatrix(rowsX, colsX);
 	
 	// Create column vector Y
 	int* Y = malloc(numExamples * sizeof(int));
@@ -30,10 +33,20 @@ int main(int argc, char** argv) {
 	// Read in value for X and Y
 	setMatrixVector(fp, X, Y, numExamples, numAttributes);
 	
+	// Calculate W = (X^T*X)^-18X^T*Y
+	int** transposeX = matrixTranspose(X, rowsX, colsX);
+	int** productXT_X = multiplyMatrix(transposeX, X, colsX, rowsX, rowsX, colsX);
+	int** inverseXT_X = calculateInverse(productXT_X, colsX);
+	freeMatrix(productXT_X, colsX); // Done w X^T*X
+	int** pseudoInverse = multiplyMatrix(inverseXT_X, transposeX, colsX, colsX, colsX, rowsX);
+	freeMatrix(transposeX, colsX);
+	freeMatrix(inverseXT_X, colsX);
+	
+	
 	freeMatrix(X, numExamples);
 	return 0;
 }
-
+ 
 /*
 ** Function to allocate memory for a nxm matrix
 ** Inputs: Number of rows, Number of Columns
@@ -45,21 +58,6 @@ int** allocateMatrix(int rows, int cols) {
 		matrix[i] = malloc(cols * sizeof(int));
 	}
 	return matrix;
-}
- 
-/*
-** Function to  get the transpose of a matrix
-** Inputs: Matrix, number of rows, number of cols
-** Outputs: The transposed matrix of the input
-*/
-int** matrixTranspose(int** matrix, int rows, int cols) {
-	int** transpose = allocateMatrix(cols, rows);
-	for (int i = 0; i < rows; i++) {
-		for (int j = 0; j < cols; j++) {
-			transpose[j][i] = matrix[i][j];
-		}
-	}
-	return transpose;
 }
  
 /*
@@ -81,6 +79,21 @@ void setMatrixVector(FILE* fp, int** matrix, int* vector, int rows, int cols) {
 		}
 		vector[i] = num;
 	}
+}
+
+/*
+** Function to  get the transpose of a matrix
+** Inputs: Matrix, number of rows, number of cols
+** Outputs: The transposed matrix of the input
+*/
+int** matrixTranspose(int** matrix, int rows, int cols) {
+	int** transpose = allocateMatrix(cols, rows);
+	for (int i = 0; i < rows; i++) {
+		for (int j = 0; j < cols; j++) {
+			transpose[j][i] = matrix[i][j];
+		}
+	}
+	return transpose;
 }
 
 /*
@@ -106,6 +119,49 @@ int** multiplyMatrix(int** m1, int** m2, int row1, int col1, int row2, int col2)
 	}
 	
 	return product;
+}
+
+/*
+** Function to calculate inverse of a matrix
+*/
+int** calculateInverse(int** matrix, int n) {
+	int** inverse = allocateMatrix(n, n);
+	// Make inverse the identity matrix
+	for (int i= 0; i < n; i++) {
+		for (int j = 0; j < n; j++) {
+			inverse[i][j] = (i == j) ? 1 : 0;
+		}
+	}
+	
+	// Perform Gauss-Jordan Elimination (Without row swaps???)
+	for (int i = 0; i < n; i++) {
+		// Make the diagonal entry 1
+		if (matrix[i][i] == 0) {
+			printf("I WAS TOLD THIS WOULDNT HAPPEN :("); 
+			exit(0);
+			// It would've been easy to code row swaps here (just saying)
+		} else if (matrix[i][i] != 1) {
+			// matrix[i] / matrix[i][i]
+			for (int k = 0; k < n; k++) {
+				matrix[i][k] /= matrix[i][i];
+				inverse[i][k] /= matrix[i][i];
+			}
+		}
+		for (int j = 0; j < n; j++) {
+			// Make all entries in current column 0 (except the diagonal)
+			if (j == i || j == 0) {
+				continue;
+			} else {
+				// Welcome to O(n^3)
+				//row[j] - row[j][i] * row[i]
+				for (int k = 0; k < n; k++) {
+					matrix[j][k] -= matrix[j][i]*matrix[i][k];
+					inverse[j][k] -= matrix[j][i]*matrix[i][k];
+				}
+			}
+		}
+	}
+	return inverse;
 }
 
 /*
