@@ -18,12 +18,6 @@ int main(int argc, char** argv) {
 	// Create 16x16 hexadoku grid
 	int grid[16][16];
 	
-	// Read in input grid and add relevant values
-	if (!createGrid(grid, fp)) { 
-		// Grid did not contain proper inputs
-		return 0;
-	}
-	
 	// Create 3 matrices to keep track of occurrences of each value in each row (Ex. rowCheck[0][3] represents # of 3s in thee first row)
 	int rowCheck[16][16];
 	int colCheck[16][16];
@@ -33,10 +27,10 @@ int main(int argc, char** argv) {
 	initZero(colCheck);
 	initZero(blockCheck);
 	
-	// Check initial grid and fill in check arrays and solve grid
-	if (!checkInitialGrid(grid, rowCheck, colCheck, blockCheck) || 
-	!solveGrid(grid, rowCheck, colCheck, blockCheck)) {
-		// Invalid grid
+	// Read in input grid and add relevant values
+	if (!createGrid(grid, fp, rowCheck, colCheck, blockCheck) || 
+	!solveGrid(grid, rowCheck, colCheck, blockCheck)) { 
+		// Grid did not contain proper inputs or could not be solved
 		printf("no-solution");
 		return 0;
 	}
@@ -51,7 +45,7 @@ int main(int argc, char** argv) {
 ** INPUTS: 16x16 hexadoku grid, Pointer to file
 ** OUTPUT: Success value (1) or failure value (0)
 */
-int createGrid(int grid[16][16], FILE* fp) {
+int createGrid(int grid[16][16], FILE* fp, int rowCheck[16][16], int colCheck[16][16], int blockCheck[16][16]) {
 	for (int i = 0; i < 16; i++) {
 		for (int j = 0; j < 16; j++) {
 			char temp;
@@ -77,72 +71,17 @@ int createGrid(int grid[16][16], FILE* fp) {
 			}
 			
 			grid[i][j] = val;
+			
+			// Check validity of initial grid
+			if (val > -1 && val < 16) {
+				if (++rowCheck[i][val] > 1 || ++colCheck[j][val] > 1 || 
+				++blockCheck[(i / 4) * 4 + (j / 4)][val] > 1) {
+					return 0;
+				}
+			}
 		}
 	}
 	return 1;		
-}
-
-/*
-** Function to check whether the board is valid
-** INPUT: 16x16 hexadoku grid, Three 16x16 2d arrays initialized to 0
-** OUTPUT: Valid (1) or invalid (0)
-*/
-int checkInitialGrid(int grid[16][16], int rowCheck[16][16], int colCheck[16][16], int blockCheck[16][16]) {
-	// Initialize array to 0 (will represent each number 0-15)
-
-	
-	// Check if rows are valid 
-	for (int i = 0; i < 16; i++) {
-		for (int j = 0; j < 16; j++) {
-			if (grid[i][j] == -1) {
-				continue;
-			}
-			
-			// Increment occurrences of current number in row i by 1
-			if (++(rowCheck[i][grid[i][j]]) > 1) {
-				return 0;
-			}
-		}
-	}
-	
-	// Check if columns are valid
-	for (int i = 0; i < 16; i++) {
-		for (int j = 0; j < 16; j++) {
-			if (grid[j][i] == -1) {
-				continue;
-			}
-			
-			// Increment occurrences of current number in column i by 1
-			if (++(colCheck[i][grid[j][i]]) > 1) {
-				return 0;
-			}
-		}
-	}
-	
-	// Check if the 4x4 blocks are valid
-	for (int i = 0; i < 16; i++) {
-		// i represents block number
-		// Rows: Blocks 0-3 should start at 0, 4-7 at 4, 8-11 at 8, and 12-15 at 12.
-		// Cols: Blocks should start at 0, 4, 8, or 12 (begin at 0, moving to the next each time)
-		int startingRow = (i / 4) * 4;
-		int startingCol = (i % 4) * 4;
-		
-		for (int x = startingRow; x < startingRow + 4; x++) {
-			for (int y = startingCol; y < startingCol + 4; y++) {
-				if (grid[x][y] == -1) {
-					// Grid number should be filled in later
-					continue;
-				}
-			
-				// Increment occurrences of current number in block i by 1
-				if (++(blockCheck[i][grid[x][y]]) > 1) {
-					return 0;
-				}	
-			}
-		}
-	
-	}
-	return 1;
 }
 
 /*
@@ -236,8 +175,8 @@ int findEmpty(int grid[16][16], int* eRow, int* eCol) {
 	}
 	
 	// Gone through rest of matrix. Start over
-	for (int i = 0; i <= *eRow; i++) {
-		for (int j = 0; j < *eCol; j++) {
+	for (int i = 0; i < *eRow + 1; i++) {
+		for (int j = 0; j < 16; j++) {
 			if (grid[i][j] == -1) {
 				*eRow = i;
 				*eCol = j;

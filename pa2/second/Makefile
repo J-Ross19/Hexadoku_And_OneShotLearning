@@ -1,4 +1,4 @@
-FLAGS = -Wall -Werror -fsanitize=address -std=c11
+FLAGS = -ggdb -Wall -Werror -fsanitize=address -std=c11
 
 all: second
 

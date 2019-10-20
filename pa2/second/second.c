@@ -18,12 +18,6 @@ int main(int argc, char** argv) {
 	// Create 16x16 hexadoku grid
 	int grid[16][16];
 	
-	// Read in input grid and add relevant values
-	if (!createGrid(grid, fp)) { 
-		// Grid did not contain proper inputs
-		return 0;
-	}
-	
 	// Create 3 matrices to keep track of occurrences of each value in each row (Ex. rowCheck[0][3] represents # of 3s in thee first row)
 	int rowCheck[16][16];
 	int colCheck[16][16];
@@ -33,10 +27,10 @@ int main(int argc, char** argv) {
 	initZero(colCheck);
 	initZero(blockCheck);
 	
-	// Check initial grid and fill in check arrays and solve grid
-	if (!checkInitialGrid(grid, rowCheck, colCheck, blockCheck) || 
-	!solveGrid(grid, rowCheck, colCheck, blockCheck, -1, 0, 0)) {
-		// Invalid grid
+	// Read in input grid and add relevant values. Then solve the grid
+	if (!createGrid(grid, fp, rowCheck, colCheck, blockCheck) || 
+	!solveGrid(grid, rowCheck, colCheck, blockCheck)) { 
+		// Grid did not contain proper inputs or is unsolvable
 		printf("no-solution");
 		return 0;
 	}
@@ -51,7 +45,7 @@ int main(int argc, char** argv) {
 ** INPUTS: 16x16 hexadoku grid, Pointer to file
 ** OUTPUT: Success value (1) or failure value (0)
 */
-int createGrid(int grid[16][16], FILE* fp) {
+int createGrid(int grid[16][16], FILE* fp, int rowCheck[16][16], int colCheck[16][16], int blockCheck[16][16]) {
 	for (int i = 0; i < 16; i++) {
 		for (int j = 0; j < 16; j++) {
 			char temp;
@@ -77,72 +71,17 @@ int createGrid(int grid[16][16], FILE* fp) {
 			}
 			
 			grid[i][j] = val;
+			
+			// Check validity of initial grid
+			if (val > -1 && val < 16) {
+				if (++rowCheck[i][val] > 1 || ++colCheck[j][val] > 1 || 
+				++blockCheck[(i / 4) * 4 + (j / 4)][val] > 1) {
+					return 0;
+				}
+			}
 		}
 	}
 	return 1;		
-}
-
-/*
-** Function to check whether the board is valid
-** INPUT: 16x16 hexadoku grid, Three 16x16 2d arrays initialized to 0
-** OUTPUT: Valid (1) or invalid (0)
-*/
-int checkInitialGrid(int grid[16][16], int rowCheck[16][16], int colCheck[16][16], int blockCheck[16][16]) {
-	// Initialize array to 0 (will represent each number 0-15)
-
-	
-	// Check if rows are valid 
-	for (int i = 0; i < 16; i++) {
-		for (int j = 0; j < 16; j++) {
-			if (grid[i][j] == -1) {
-				continue;
-			}
-			
-			// Increment occurrences of current number in row i by 1
-			if (++(rowCheck[i][grid[i][j]]) > 1) {
-				return 0;
-			}
-		}
-	}
-	
-	// Check if columns are valid
-	for (int i = 0; i < 16; i++) {
-		for (int j = 0; j < 16; j++) {
-			if (grid[j][i] == -1) {
-				continue;
-			}
-			
-			// Increment occurrences of current number in column i by 1
-			if (++(colCheck[i][grid[j][i]]) > 1) {
-				return 0;
-			}
-		}
-	}
-	
-	// Check if the 4x4 blocks are valid
-	for (int i = 0; i < 16; i++) {
-		// i represents block number
-		// Rows: Blocks 0-3 should start at 0, 4-7 at 4, 8-11 at 8, and 12-15 at 12.
-		// Cols: Blocks should start at 0, 4, 8, or 12 (begin at 0, moving to the next each time)
-		int startingRow = (i / 4) * 4;
-		int startingCol = (i % 4) * 4;
-		
-		for (int x = startingRow; x < startingRow + 4; x++) {
-			for (int y = startingCol; y < startingCol + 4; y++) {
-				if (grid[x][y] == -1) {
-					// Grid number should be filled in later
-					continue;
-				}
-			
-				// Increment occurrences of current number in block i by 1
-				if (++(blockCheck[i][grid[x][y]]) > 1) {
-					return 0;
-				}	
-			}
-		}
-	
-	}
-	return 1;
 }
 
 /*
@@ -159,25 +98,79 @@ void initZero(int grid[16][16]) {
 
 /*
 ** Function to fill in remainder of grid
-** Input: 16x16 hexadoku grid
+** Input: 16x16 hexadoku grid, 3 16x16 2d check arrays
 ** Output: Valid (1) or invalid (0)
 */
-int solveGrid(int grid[16][16], int rowCheck[16][16], int colCheck[16][16], int blockCheck[16][16], int index, int changedRow, int changedCol) {
+int solveGrid(int grid[16][16], int rowCheck[16][16], int colCheck[16][16], int blockCheck[16][16]) {
+		
+	int eRow = 0;
+	int eCol = -1;
 	
+	// oRow and oCol represent the row and column of the first empty element (after filling in)
+	int oRow = 0;
+	int oCol = -1;
+	int passed = 0;
+	
+	while (findEmpty(grid, &eRow, &eCol)) {
+		int num = 0;
+		int count = 0;
+		for (int i  = 0; i < 16; i++) {
+			// Check validity
+			if (rowCheck[eRow][i] + 1 > 1 || colCheck[eCol][i] + 1 > 1 || 
+			blockCheck[(eRow / 4) * 4 + (eCol / 4)][i] + 1 > 1) {
+				// If it fails any test, check next value
+				continue;
+			} else {
+				// Otherwise, increment count
+				count++;
+				num = i;
+			}
+		}
+
+		if (count > 1) {
+			// Decide if we have checked all empty values without success
+			if (passed && eRow == oRow && eCol == oCol) {
+				return startGuess(grid, rowCheck, colCheck, blockCheck, -1, 0, -1);
+			}
+			passed = 1;
+		} else if (count < 1) {
+			// If less than one possibility, no solvable grid
+			return 0;
+		} else {
+			// Only possibility: Insert number into grid
+			grid[eRow][eCol] = num;
+			
+			//Increment occurrence in respecting checks
+			rowCheck[eRow][num]++;
+			colCheck[eCol][num]++;
+			blockCheck[(eRow / 4) * 4 + (eCol / 4)][num]++;
+			
+			// Create new original check and set passed to 0, so we can tell if there has been a full loop
+			findEmpty(grid, &oRow, &oCol);
+			passed = 0;
+		}
+	}
+	return 1;
+}
+
+
+/*
+** Function to fill in remainder of grid
+** Input: 16x16 hexadoku grid, 3 16x16 2d check arrays, index of last inserted, row and column of last inserted
+** Output: Valid (1) or invalid (0)
+*/
+int startGuess(int grid[16][16], int rowCheck[16][16], int colCheck[16][16], int blockCheck[16][16], int index, int eRow, int eCol) {
+
+	//eRow and eCol correspond to previously empty row/col that was filled in with variable index
 	
 	// Check validity (skip first function call)
-	if (index != -1 && (rowCheck[changedRow][index] > 1 || colCheck[changedCol][index] > 1 || 
-	blockCheck[(changedRow / 4) * 4 + (changedCol / 4)][index] > 1)) {
-		// Decrement checks and go back one step if invalid
-		rowCheck[changedRow][index]--;
-		colCheck[changedCol][index]--;
-		blockCheck[(changedRow / 4) * 4 + (changedCol / 4)][index]--;
+	if (index != -1 && (rowCheck[eRow][index] > 1 || colCheck[eCol][index] > 1 || 
+	blockCheck[(eRow / 4) * 4 + (eCol / 4)][index] > 1)) {
+		// Go back one step if invalid
 		return 0;
 	} 
 	
-	// Get row and column number of next empty element
-	int eRow = 0;
-	int eCol = 0;
+	// Get row and column number of next empty element (changes eRow and eCol to next empty row/col
 	if (!findEmpty(grid, &eRow, &eCol)) {
 		return 1;
 	}
@@ -189,14 +182,20 @@ int solveGrid(int grid[16][16], int rowCheck[16][16], int colCheck[16][16], int 
 		blockCheck[(eRow / 4) * 4 + (eCol / 4)][i]++;
 		
 		grid[eRow][eCol] = i;
+		
 		// Recursive call with this value in grid
-		if (solveGrid(grid, rowCheck, colCheck, blockCheck, i, eRow, eCol)) {
+		if (startGuess(grid, rowCheck, colCheck, blockCheck, i, eRow, eCol)) {
 			return 1;
-		}
-		// If failed, reset grid
-		grid[eRow][eCol] = -1;	
+		} 	
+		
+		// Decrement checks if value did not work
+		rowCheck[eRow][i]--;
+		colCheck[eCol][i]--;
+		blockCheck[(eRow / 4) * 4 + (eCol / 4)][i]--;
 	}
 	
+	// No solution found with this number (go back a step)
+	grid[eRow][eCol] = -1;
 	return 0;
 }
 
@@ -208,7 +207,7 @@ int solveGrid(int grid[16][16], int rowCheck[16][16], int colCheck[16][16], int 
 int findEmpty(int grid[16][16], int* eRow, int* eCol) {
 	// Starting at last empty row and column, find the next empty number
 	for (int i = *eRow; i < 16; i++) {
-		int j = (i == *eRow) ? *eCol : 0;
+		int j = (i == *eRow) ? *eCol + 1 : 0;
 		while (j < 16) {
 			if (grid[i][j] == -1) {
 				*eRow = i;
@@ -220,8 +219,8 @@ int findEmpty(int grid[16][16], int* eRow, int* eCol) {
 	}
 	
 	// Gone through rest of matrix. Start over
-	for (int i = 0; i <= *eRow; i++) {
-		for (int j = 0; j < *eCol; j++) {
+	for (int i = 0; i < *eRow + 1; i++) {
+		for (int j = 0; j < 16; j++) {
 			if (grid[i][j] == -1) {
 				*eRow = i;
 				*eCol = j;
