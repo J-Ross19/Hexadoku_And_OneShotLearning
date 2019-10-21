@@ -133,6 +133,8 @@ double** matrixTranspose(double** matrix, int rows, int cols) {
 
 /*
 ** Function to multiply two matrices together
+** Inputs: 2 matrices and their respective number of rows and columns
+** Output: Matrix product of the two matrices
 */
 double** multiplyMatrix(double** m1, double** m2, int row1, int col1, int row2, int col2) {
 	
@@ -158,6 +160,8 @@ double** multiplyMatrix(double** m1, double** m2, int row1, int col1, int row2, 
 
 /*
 ** Function to calculate inverse of a matrix
+** Inputs: n x n matrix and number of rows/cols in said matrix
+** Output: n x n Inverse of said matrix
 */
 double** calculateInverse(double** matrix, int n) {
 	
@@ -206,6 +210,7 @@ double** calculateInverse(double** matrix, int n) {
 
 /*
 ** Function to free memory of a matrix
+** Inputs: Matrix and number of rows in said matrix
 */
 void freeMatrix(double** matrix, int rows) {
 	for (int i = 0; i < rows; i++) {
