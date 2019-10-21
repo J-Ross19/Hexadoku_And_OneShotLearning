@@ -2,8 +2,6 @@
 #include <stdlib.h>
 #include "third.h"
 
-void printMatrix(double**, int, int);
-
 int main(int argc, char** argv) {
 	// Invalid args
 	if (argc != 3) {
@@ -216,15 +214,5 @@ void freeMatrix(double** matrix, int rows) {
 	free(matrix);
 }
 
-void printMatrix(double** matrix, int rows, int cols) {
-	for (int i = 0; i < rows; i++) {
-		for (int j = 0; j < cols; j++) {
-			printf("%lf\t", matrix[i][j]);
-		}
-		printf("\n");
-	}
-	printf("\n");
-}
-	
 
 
