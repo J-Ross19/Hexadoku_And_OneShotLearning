@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include "third.h"
 
+void printMatrix(double**, int, int);
+
 int main(int argc, char** argv) {
 	// Invalid args
 	if (argc != 3) {
@@ -15,24 +17,22 @@ int main(int argc, char** argv) {
 	}
 	
 	// Part 1: Training
-	int numAttributes = 0;
-	int numExamples = 0;
-	if (fscanf(fp, "%d\n", &numAttributes) == EOF || fscanf(fp, "%d\n", &numExamples) == EOF) {
+	int rowsX = 0;
+	int colsX = 0;
+	if (fscanf(fp, "%d\n", &colsX) == EOF || fscanf(fp, "%d\n", &rowsX) == EOF) {
 		// Invalid file format
 		return 0;
 	}
 	
-	int rowsX = numExamples;
-	int colsX = numAttributes - 1;
 	
 	// Create matrix X with N rows and K columns
-	double** X = allocateMatrix(rowsX, colsX);
+	double** X = allocateMatrix(rowsX, ++colsX);
 	
 	// Create column vector Y
 	double** Y = allocateMatrix(rowsX, 1);
 	
 	// Read in value for X and Y
-	setMatrixVector(fp, X, Y, numExamples, numAttributes);
+	setMatrixVector(fp, X, Y, rowsX, colsX + 1);
 	
 	// Calculate weights : W = (X^T*X)^-1*X^T*Y
 	double** transposeX = matrixTranspose(X, rowsX, colsX);
@@ -98,12 +98,15 @@ double** allocateMatrix(int rows, int cols) {
 void setMatrixVector(FILE* fp, double** matrix, double** vector, int rows, int cols) {
 	for (int i = 0; i < rows; i++) {
 		double  num = 0;
-		for (int j = 0; j < cols - 1; j++) {
-			if (fscanf(fp, "%lf\t", &num) == EOF) {
+		matrix[i][0] = 1;
+			
+		for (int j = 1; j < cols - 1; j++) {
+			if (fscanf(fp, "%lf,", &num) == EOF) {
 				exit(0);
 			}
 			matrix[i][j] = num;
 		}
+		
 		if (fscanf(fp, "%lf\n", &num) == EOF) {
 			exit(0); 
 		}
@@ -144,7 +147,7 @@ double** multiplyMatrix(double** m1, double** m2, int row1, int col1, int row2, 
 	
 	for (int i = 0; i < row1; i++) {
 		for (int j = 0; j < col2; j++) {
-			int sum = 0;
+			double sum = 0;
 			for (int k = 0; k < col1; k++) {
 				sum += m1[i][k] * m2[k][j];
 			}
@@ -159,7 +162,9 @@ double** multiplyMatrix(double** m1, double** m2, int row1, int col1, int row2, 
 ** Function to calculate inverse of a matrix
 */
 double** calculateInverse(double** matrix, int n) {
+	
 	double** inverse = allocateMatrix(n, n);
+	
 	// Make inverse the identity matrix
 	for (int i= 0; i < n; i++) {
 		for (int j = 0; j < n; j++) {
@@ -174,23 +179,26 @@ double** calculateInverse(double** matrix, int n) {
 			printf("I WAS TOLD THIS WOULDNT HAPPEN :("); 
 			exit(0);
 			// It would've been easy to code row swaps here (just saying)
-		} else if (matrix[i][i] != 1) {
-			// matrix[i] / matrix[i][i]
+		} else if (matrix[i][i] != 1.0) {
+			// Divide row i by matrix[i][i]
+			double divisor = matrix[i][i];
 			for (int k = 0; k < n; k++) {
-				matrix[i][k] /= matrix[i][i];
-				inverse[i][k] /= matrix[i][i];
+				matrix[i][k] /= divisor;
+				inverse[i][k] /= divisor;
 			}
 		}
+		
 		for (int j = 0; j < n; j++) {
 			// Make all entries in current column 0 (except the diagonal)
-			if (j == i || j == 0) {
+			if (j == i) {
 				continue;
 			} else {
 				// Welcome to O(n^3)
 				//row[j] - row[j][i] * row[i]
+				double multiplier = matrix[j][i];
 				for (int k = 0; k < n; k++) {
-					matrix[j][k] -= matrix[j][i]*matrix[i][k];
-					inverse[j][k] -= matrix[j][i]*matrix[i][k];
+					matrix[j][k] -= multiplier*matrix[i][k];
+					inverse[j][k] -= multiplier*inverse[i][k];
 				}
 			}
 		}
@@ -207,3 +215,16 @@ void freeMatrix(double** matrix, int rows) {
 	}
 	free(matrix);
 }
+
+void printMatrix(double** matrix, int rows, int cols) {
+	for (int i = 0; i < rows; i++) {
+		for (int j = 0; j < cols; j++) {
+			printf("%lf\t", matrix[i][j]);
+		}
+		printf("\n");
+	}
+	printf("\n");
+}
+	
+
+
